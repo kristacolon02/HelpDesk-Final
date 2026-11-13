@@ -17,6 +17,21 @@ CREATE TABLE users (
   UNIQUE (email)
 );
 
+-- 12/11/2026 - Krista Colon: modulo de incidentes masivos (examen final, ficha 07).
+-- Un incidente agrupa muchos tickets; cada ticket pertenece como maximo a un incidente
+-- (columna tickets.incident_id). Va antes de tickets porque tickets lo referencia.
+CREATE TABLE incidents (
+  id SERIAL NOT NULL,
+  title VARCHAR(160) NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  status VARCHAR(20) NOT NULL DEFAULT 'open'
+    CHECK (status IN ('open', 'resolved')),
+  created_by_id INTEGER NOT NULL,
+  created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  FOREIGN KEY(created_by_id) REFERENCES users (id)
+);
+
 CREATE TABLE tickets (
   id SERIAL NOT NULL,
   title VARCHAR(160) NOT NULL,
@@ -33,11 +48,19 @@ CREATE TABLE tickets (
   -- SLA: lo calcula el trigger trg_tickets_set_due_at segun la prioridad
   -- (functions_triggers.sql). Python no lo conoce: la base es la duena del dato.
   due_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+  -- 12/11/2026 - Krista Colon: incidente al que pertenece el ticket (NULL = ninguno).
+  -- Una sola columna garantiza "como maximo un incidente por ticket". ON DELETE SET NULL:
+  -- si se borra el incidente, el ticket se conserva sin incidente.
+  incident_id INTEGER,
   PRIMARY KEY (id),
   CHECK (due_at >= created_at),
   FOREIGN KEY(requester_id) REFERENCES users (id),
-  FOREIGN KEY(assignee_id) REFERENCES users (id)
+  FOREIGN KEY(assignee_id) REFERENCES users (id),
+  FOREIGN KEY(incident_id) REFERENCES incidents (id) ON DELETE SET NULL
 );
+
+-- 12/11/2026 - Krista Colon: el detalle del incidente busca sus tickets por esta columna.
+CREATE INDEX ix_tickets_incident_id ON tickets (incident_id);
 
 CREATE TABLE comments (
   id SERIAL NOT NULL,

@@ -1,0 +1,55 @@
+<!doctype html>
+<!--
+  12/11/2026 - Krista Colon: pantalla INCIDENTES (examen final, ficha 07), siguiendo la estructura de las paginas
+  del 22/10/2026. Un supervisor o administrador crea un incidente masivo y, en su detalle, escribe el numero de un
+  ticket para vincularlo; la lista de tickets vinculados se lee de la API, asi que se mantiene al recargar.
+  Llama a GET/POST /api/incidents, GET /api/incidents/{id} y POST /api/incidents/{id}/tickets.
+  Logica en js/pages/incidents.js.
+-->
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Incidentes · HelpDesk EDU</title>
+  <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Saltar al contenido</a>
+  <header id="site-nav"></header>
+  <main id="main" class="container py-4">
+    <h1 id="page-title" tabindex="-1" class="h3 mb-3">Incidentes</h1>
+    <div id="alert-region" aria-live="assertive" aria-atomic="true"></div>
+    <noscript><div class="alert alert-warning" role="alert">Este cliente necesita JavaScript para funcionar.</div></noscript>
+
+    <div class="row g-4">
+      <section class="col-lg-5" aria-labelledby="list-title">
+        <form id="create-form" class="card card-body mb-4 d-none" novalidate>
+          <h2 class="h5">Nuevo incidente</h2>
+          <div class="mb-3">
+            <label for="incident-title" class="form-label">Título</label>
+            <input id="incident-title" name="title" class="form-control" required minlength="3" maxlength="160">
+          </div>
+          <div class="mb-3">
+            <label for="incident-description" class="form-label">Descripción</label>
+            <textarea id="incident-description" name="description" class="form-control" rows="2" maxlength="2000"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" id="create-button">Crear incidente</button>
+        </form>
+
+        <h2 id="list-title" class="h5">Incidentes registrados</h2>
+        <div id="incident-list"></div>
+      </section>
+
+      <section class="col-lg-7" aria-labelledby="detail-title">
+        <h2 id="detail-title" class="h5">Detalle</h2>
+        <div id="incident-detail" class="card card-body">
+          <p class="text-body-secondary mb-0">Selecciona un incidente de la lista para ver sus tickets.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
+  <script type="module" src="js/pages/incidents.js"></script>
+</body>
+</html>
