@@ -25,8 +25,15 @@ from app.domain.clock import now
 from app.domain.errors import ConflictError
 from app.models.comments import Comment
 from app.models.entities import HistoryEvent, Ticket, User
+from app.models.incidents import Incident, IncidentStatus
 from app.models.enums import Role, TicketStatus
-from app.repositories.base import TicketPage, TicketQuery, TicketRepository, UserRepository
+from app.repositories.base import (
+    IncidentRepository,
+    TicketPage,
+    TicketQuery,
+    TicketRepository,
+    UserRepository,
+)
 from app.services.notifications import Notification, NotificationRepository
 
 
@@ -65,6 +72,11 @@ class TicketORM(Base):
     # Solo lectura desde Python: la llena el trigger de la base (SLA segun la
     # prioridad). FetchedValue le avisa a SQLAlchemy que el valor lo pone la base.
     due_at: Mapped[datetime | None] = mapped_column(server_default=FetchedValue())
+    # 12/11/2026 - Krista Colon: incidente al que pertenece el ticket (None = ninguno). El dominio
+    # Ticket no la necesita: solo la leen y escriben el repositorio y el servicio de incidentes.
+    incident_id: Mapped[int | None] = mapped_column(
+        ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
+    )
 
     comments: Mapped[list["CommentORM"]] = relationship(
         back_populates="ticket",
@@ -114,6 +126,19 @@ class NotificationORM(Base):
     channel: Mapped[str] = mapped_column(String(30), default="in_app")
     type: Mapped[str] = mapped_column(String(50))
     read_at: Mapped[datetime | None]
+    created_at: Mapped[datetime]
+
+
+class IncidentORM(Base):
+    """12/11/2026 - Krista Colon: tabla incidents (examen final, ficha 07)."""
+
+    __tablename__ = "incidents"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(160))
+    description: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(20), default=IncidentStatus.OPEN.value)
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime]
 
 
@@ -435,3 +460,84 @@ def _notification_to_domain(row: NotificationORM) -> Notification:
         read_at=row.read_at,
         created_at=row.created_at,
     )
+
+
+# --- incidentes (examen final, ficha 07) -----------------------------------
+
+def _incident_to_domain(row: IncidentORM) -> Incident:
+    return Incident(
+        id=row.id,
+        title=row.title,
+        description=row.description,
+        status=IncidentStatus(row.status),
+        created_by_id=row.created_by_id,
+        created_at=row.created_at,
+    )
+
+
+class SqlAlchemyIncidentRepository(IncidentRepository):
+    """12/11/2026 - Krista Colon: incidentes respaldados por la tabla incidents.
+
+    Igual que los otros repositorios, nunca hace commit: comparte la sesion de la
+    peticion y la unidad de trabajo decide si se confirma o se revierte.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, incident: Incident) -> Incident:
+        row = IncidentORM(
+            title=incident.title,
+            description=incident.description,
+            status=IncidentStatus(incident.status).value,
+            created_by_id=incident.created_by_id,
+            created_at=incident.created_at,
+        )
+        _insert(self._session, row)
+        # El INSERT ya se ejecuto: PostgreSQL asigno la llave.
+        incident.id = row.id
+        return incident
+
+    def by_id(self, incident_id: int) -> Incident | None:
+        row = self._session.get(IncidentORM, incident_id)
+        return _incident_to_domain(row) if row else None
+
+    def all(self) -> list[Incident]:
+        rows = self._session.scalars(
+            select(IncidentORM).order_by(IncidentORM.created_at.desc(), IncidentORM.id.desc())
+        )
+        return [_incident_to_domain(row) for row in rows]
+
+    def incident_of_ticket(self, ticket_id: int) -> int | None:
+        return self._session.scalar(
+            select(TicketORM.incident_id).where(TicketORM.id == ticket_id)
+        )
+
+    def link_ticket(self, incident_id: int, ticket_id: int) -> bool:
+        # 12/11/2026 - Krista Colon: vinculacion CONTROLADA. El UPDATE solo afecta al ticket si
+        # todavia no tiene incidente (incident_id IS NULL). Asi, aunque dos supervisores intenten
+        # vincular el mismo ticket a la vez, la base deja pasar a uno solo.
+        result = self._session.execute(
+            update(TicketORM)
+            .where(TicketORM.id == ticket_id, TicketORM.incident_id.is_(None))
+            .values(incident_id=incident_id, updated_at=now())
+            .execution_options(synchronize_session="fetch")
+        )
+        return result.rowcount == 1
+
+    def tickets_of(self, incident_id: int) -> list[Ticket]:
+        rows = self._session.scalars(
+            select(TicketORM)
+            .where(TicketORM.incident_id == incident_id)
+            .options(selectinload(TicketORM.comments), selectinload(TicketORM.history))
+            .order_by(TicketORM.id)
+        )
+        return [_ticket_to_domain(row) for row in rows]
+
+    def ticket_counts(self) -> dict[int, int]:
+        rows = self._session.execute(
+            select(TicketORM.incident_id, func.count())
+            .where(TicketORM.incident_id.is_not(None))
+            .group_by(TicketORM.incident_id)
+        )
+        return {incident_id: total for incident_id, total in rows}

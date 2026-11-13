@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from app.api.errors import register_error_handlers
-from app.api.routes import auth, notifications, system, tickets, users
+from app.api.routes import auth, incidents, notifications, system, tickets, users
 from app.core.config import get_secret_key, get_settings
 from app.core.database import Database
 from app.core.logging_config import configure_logging
@@ -95,6 +95,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
     api.include_router(tickets.router)
     api.include_router(users.router)
     api.include_router(notifications.router)
+    # 12/11/2026 - Krista Colon: modulo de incidentes masivos (examen final, ficha 07).
+    api.include_router(incidents.router)
     app.include_router(api)
 
     # 22/10/2026 - Semana 16: monto el cliente web DESPUES de /api para que ninguna ruta de la

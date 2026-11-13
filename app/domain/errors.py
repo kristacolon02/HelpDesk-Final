@@ -97,3 +97,56 @@ class InvalidStatusTransitionError(ValidationError):
             from_status=str(from_value),
             to_status=str(to_value),
         )
+
+
+# 12/11/2026 - Krista Colon: errores de dominio del modulo de incidentes (examen final, ficha 07).
+class IncidentNotFoundError(NotFoundError):
+    """Raised when an incident does not exist."""
+
+    code = "incident_not_found"
+
+    def __init__(self, incident_id: int) -> None:
+        DomainError.__init__(
+            self,
+            f"Incident {incident_id} was not found",
+            incident_id=incident_id,
+        )
+
+
+class IncidentNotOpenError(ConflictError):
+    """12/11/2026 - Krista Colon: no se vinculan tickets a un incidente ya resuelto."""
+
+    code = "incident_not_open"
+
+    def __init__(self, incident_id: int) -> None:
+        super().__init__(
+            f"Incident {incident_id} is not open",
+            incident_id=incident_id,
+        )
+
+
+class TicketNotEligibleError(ConflictError):
+    """12/11/2026 - Krista Colon: solo un ticket abierto o en proceso puede vincularse."""
+
+    code = "ticket_not_eligible"
+
+    def __init__(self, ticket_id: int, status: object) -> None:
+        status_value = getattr(status, "value", status)
+        super().__init__(
+            f"Ticket {ticket_id} is {status_value} and cannot be linked",
+            ticket_id=ticket_id,
+            status=str(status_value),
+        )
+
+
+class TicketAlreadyLinkedError(ConflictError):
+    """12/11/2026 - Krista Colon: un ticket pertenece como maximo a un incidente."""
+
+    code = "ticket_already_linked"
+
+    def __init__(self, ticket_id: int, incident_id: int | None) -> None:
+        super().__init__(
+            f"Ticket {ticket_id} already belongs to incident {incident_id}",
+            ticket_id=ticket_id,
+            incident_id=incident_id,
+        )

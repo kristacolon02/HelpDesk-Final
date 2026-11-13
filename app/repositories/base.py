@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 from app.models.entities import Ticket, User
+from app.models.incidents import Incident
 from app.models.enums import TicketStatus
 
 
@@ -111,3 +112,38 @@ class UserRepository(ABC):
 
     @abstractmethod
     def set_password_hash(self, user_id: int, password_hash: str) -> None: ...
+
+
+class IncidentRepository(ABC):
+    """12/11/2026 - Krista Colon: contrato de incidentes (examen final, ficha 07).
+
+    El servicio depende de este contrato y no de SQLAlchemy. Como los demas
+    repositorios, NO hace commit: la unidad de trabajo (session_scope) decide.
+    """
+
+    @abstractmethod
+    def add(self, incident: "Incident") -> "Incident":
+        """Guarda el incidente nuevo y le asigna id (lo asigna la base)."""
+
+    @abstractmethod
+    def by_id(self, incident_id: int) -> "Incident | None": ...
+
+    @abstractmethod
+    def all(self) -> list["Incident"]:
+        """Todos los incidentes, del mas reciente al mas antiguo."""
+
+    @abstractmethod
+    def incident_of_ticket(self, ticket_id: int) -> int | None:
+        """Id del incidente al que pertenece el ticket (None si no pertenece a ninguno)."""
+
+    @abstractmethod
+    def link_ticket(self, incident_id: int, ticket_id: int) -> bool:
+        """Vincula el ticket SOLO si todavia no tiene incidente. Devuelve True si lo vinculo."""
+
+    @abstractmethod
+    def tickets_of(self, incident_id: int) -> list[Ticket]:
+        """Tickets vinculados al incidente, en orden de id."""
+
+    @abstractmethod
+    def ticket_counts(self) -> dict[int, int]:
+        """Cuantos tickets tiene vinculados cada incidente."""

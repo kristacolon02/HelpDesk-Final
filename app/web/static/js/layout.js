@@ -74,6 +74,8 @@ function buildNav(user, active) {
           navLink("tickets.html", isStaff(user) ? "Tickets" : "Mis tickets", active === "tickets"),
           navLink("ticket-new.html", "Nuevo ticket", active === "ticket-new"),
           navLink("notifications.html", "Avisos", active === "notifications", unreadBadge),
+          // 12/11/2026 - Krista Colon: Incidentes (examen final, ficha 07); solo el personal los consulta.
+          isStaff(user) ? navLink("incidents.html", "Incidentes", active === "incidents") : null,
         ),
         el(
           "div",
